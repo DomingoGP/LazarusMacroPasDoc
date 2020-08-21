@@ -15,7 +15,7 @@ procedure function declaration.
 
 example:
 
-    function AddCheckBox(const aCaption: string; aChecked: boolean = False): TCheckBox;
+    function AddRadioButton(const aCaption: string; aChecked: boolean = False): TCheckBox;
     
 Executing the macro with the caret in the line of function declaration will insert the comment before.
 
@@ -26,4 +26,3 @@ Executing the macro with the caret in the line of function declaration will inse
       @raises( none )
     }
     function AddRadioButton(const aCaption: string; aChecked: boolean = False): TRadioButton;
-
