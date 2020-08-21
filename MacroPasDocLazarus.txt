@@ -1,0 +1,174 @@
+// Lazarus editor macro.  Template for pasdoc functions and procedures documentation
+// Execute with caret in the precedure/function line declaration.
+// Autor: Domingo Galmés  dgalmesp@gmail.com  21/08/2020
+// public domain.
+function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
+var
+  wI: integer;
+  wL: integer;
+  wStart: integer;
+begin
+  wL := Length(aStr);
+   //skip delimiters
+  wI := aPos;
+  while wI <= wL do
+  begin
+    if Pos(aStr[wI],aDelimiters) = 0 then
+      break;
+    Inc(wI);
+  end;
+  if wI > wL then // all chars are delimiters
+  begin
+    Result := '';
+    aPos := 0;
+    Exit;
+  end;
+  wStart := wI;
+  while wI <= wL do // while not delimiters
+  begin
+    if Pos(aStr[wI],aDelimiters) > 0 then
+      Break;
+    Inc(wI);
+  end;
+  result := Copy(aStr, wStart, wI - wStart);
+  Inc(wI);   //skip final delimiter (only one)
+  if wI<=wL then
+    aPos:=wI
+  else
+    aPos:=0;
+end;
+
+var
+  text:string;
+  start:TPoint;
+  declaration:string;
+  openParens:integer;
+  p:integer;
+  parameters:string;
+  l,line:integer;
+  inComment:boolean;
+  inSet:boolean;
+  isFunction:boolean;
+  parameter,parameterlower:string;
+begin
+  ecLineStart;
+  start:=Caller.CaretXY;
+  declaration:=Caller.Lines[start.Y-1];
+  p:=1;
+  text:=LowerCase(StrTokenPos(declaration,' ',p));
+  isFunction:=false;
+  if text='function' then
+    isFunction:=true
+  else if text<>'procedure' then
+    exit;
+
+  line:=0;
+  // search '(' parameters start
+  openParens:=0;
+  l:=length(declaration);
+  //p:=1;
+  while p<=l do
+  begin
+    if declaration[p]='(' then
+    begin
+      Inc(openParens);
+      inc(p);
+      break;
+    end;
+    inc(p);
+  end;
+  // seachr ')' parameters end
+  inComment:=false;
+  inSet:=false;
+  while p<=l do
+  begin
+    if declaration[p]=#39 then  // 'in string'.
+    begin
+      inc(p);
+      while (p<=l) do
+      begin
+        if declaration[p]=#39 then
+        begin
+          if (p<l) and (declaration[p+1]=#39) then   // escape '
+            inc(p)
+          else
+            break;
+        end;
+        inc(p);
+      end;
+    end
+    else if (declaration[p]='{') then
+        inComment:=true
+    else if inComment=true then
+    begin
+      if declaration[p]='}' then
+        inComment:=false;
+    end
+    else if (declaration[p]='[') then
+        inSet:=true
+    else if inSet=true then
+    begin
+      if declaration[p]=']' then
+        inSet:=false;
+    end
+    else if declaration[p]='(' then
+    begin
+      Inc(openParens);
+    end
+    else if declaration[p]=')' then
+    begin
+      Dec(openParens);
+      if openParens=0 then
+        break;
+    end
+    else if declaration[p]='/'  then  //line comment
+    begin
+      if (p<l) and (declaration[p+1]='/') then
+      begin
+        p:=l+1;  //next line.
+      end;
+    end
+    else
+    begin
+      parameters:=parameters+declaration[p];
+    end;
+
+    inc(p);
+    if p>l then
+    begin
+      inc(line);
+      declaration:=Caller.Lines[start.Y-1+line];
+      l:=length(declaration);
+      p:=1;
+    end;
+  end;
+  // separamos parameters por , o ; y despreciamos despues de :
+  //{parameters: aV1,aV2,aV3:integer;const aS1:string= }
+  //procedure Hola2(aV1,aV2,aV3:integer;const aS1:string='27');
+  text:='{ Description '+#10;
+  p:=1;
+  while p>0 do
+  begin
+    parameter:=StrTokenPos(parameters,',;',p);
+    l:=1;
+    parameter:=Trim(StrTokenPos(parameter,':',l));
+    parameterlower:=LowerCase(parameter);
+    l:=length(parameter);
+    if Pos('var',parameterlower)>0 then
+      parameter:=Copy(parameter,5,l-4)
+    else if Pos('constref',parameterlower)>0 then
+      parameter:=Copy(parameter,10,l-9)
+    else if Pos('const',parameterlower)>0 then
+      parameter:=Copy(parameter,7,l-6)
+    else if Pos('out',parameterlower)>0 then
+      parameter:=Copy(parameter,5,l-4);
+    parameter:=Trim(parameter);
+    text:=text+'  @param('+parameter+' description )'+#10;
+  end;
+  if isFunction then
+    text:=text+'  @returns( description )'+#10;
+  text:=text+'  @raises( none )'+#10;
+  text:=text+'}'+#10;
+  //Caller.CaretXY:=start;
+  Caller.insertTextAtCaret(text,scamEnd);
+end.
