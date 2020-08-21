@@ -1,5 +1,5 @@
 # LazarusMacroPasDoc
-Macro for lazarus to document functions and procedures. Makes [Pasdoc](https://github.com/pasdoc/pasdoc/wiki) comment template
+Macro for [Lazarus ide](https://www.lazarus-ide.org/) to document functions and procedures. Makes [Pasdoc](https://github.com/pasdoc/pasdoc/wiki) comment template
 
 
 [Create a macro](https://wiki.freepascal.org/IDE_Window:_Editor_Macros) in lazarus and edit inserting 
