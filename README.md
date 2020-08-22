@@ -26,3 +26,5 @@ Executing the macro with the caret in the line of function declaration will inse
       @raises( none )
     }
     function AddRadioButton(const aCaption: string; aChecked: boolean = False): TRadioButton;
+
+**Requeriments**: The package *editormacroscript* must be installed in the ide.
