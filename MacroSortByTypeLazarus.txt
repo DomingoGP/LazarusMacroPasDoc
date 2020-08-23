@@ -1,0 +1,231 @@
+//Sort Selected lines by type.
+// search for the last ':' and sort by the next word.
+// Author: Domingo Galmés  23/08/2020
+// atomic undo.
+
+const
+  optAscendentOrder=true;
+  optIgnoreCase=true;
+
+var
+  Lines:array of string;
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+function ToLower(aC:char):char;
+begin
+  result:=aC;
+  if (ac>='A') and (aC<='Z') then
+    result:=Chr(Ord(aC)+32);
+end;
+
+function SkipWhiteSpaces(const aStr:string;aPos:integer;aLen:integer):integer;
+var
+  wC:char;
+begin
+  while (aPos<=aLen) do
+  begin
+    wC:=aStr[aPos];
+    if (wC<>' ') and (wC<>#9) then
+      break;
+    Inc(aPos);
+  end;
+  result:=aPos;
+end;
+
+function CompareStr(const aS1:string;aPos1:integer;aLen1:integer;const aS2:string;aPos2:integer;aLen2:integer):integer;
+var
+  wC1,wC2:char;
+begin
+  result:=0;
+  if (aLen1>0) and (aLen2>0) then
+  begin
+    while (aPos1<=aLen1) and (aPos2<=aLen2) do
+    begin
+      wC1:=aS1[aPos1];
+      wC2:=aS2[aPos2];
+      if optIgnoreCase=true then
+      begin
+        wC1:=ToLower(wC1);
+        wC2:=ToLower(wC2);
+      end;
+      result:=Ord(wC1)-Ord(wC2);
+      if result<>0 then
+      begin
+        if optAscendentOrder=false then
+          result:= -result;
+        Exit;
+      end;
+       Inc(aPos1);
+       Inc(aPos2);
+     end;
+  end;
+  if (aLen1<=0) or (aPos1<1) or (aPos1>aLen1) then
+    wC1:=#0
+  else
+    wC1:=aS1[aPos1];
+  if (aLen2<=0) or (aPos2<1) or (aPos2>aLen2) then
+    wC2:=#0
+  else
+    wC2:=aS2[aPos2];
+  if optIgnoreCase=true then
+  begin
+    wC1:=ToLower(wC1);
+    wC2:=ToLower(wC2);
+  end;
+  result:=Ord(wC1)-Ord(wC2);
+  if optAscendentOrder=false then
+    result:= -result;
+end;
+
+//position of character after last ':' or 0
+function LastColonParen(const aStr:string;aPos:integer):integer;
+var
+  wC:char;
+begin
+  while aPos>=1 do
+  begin
+    wC:=aStr[aPos];
+    if (wC=':') then
+    begin
+      inc(aPos);
+      break;
+    end
+    else if (wC=')') then  //end function declaration.
+    begin
+      aPos:=0;
+      break;
+    end;
+    Dec(aPos);
+  end;
+  result:=aPos;
+end;
+
+function IsIdent(c: Char): Boolean;
+begin
+  Result := ((c >= 'a') and (c <= 'z')) or
+            ((c >= 'A') and (c <= 'Z')) or
+            ((c >= '0') and (c <= '9')) or
+            (c = '_');
+end;
+
+function Identifier(const aStr:string;aPos:integer;aLen:integer):integer;
+var
+  wL:integer;
+begin
+  result:=aPos;
+  wL:=0;
+  while aPos<=aLen do
+  begin
+    if IsIdent(aStr[aPos])=false then
+      break;
+    Inc(aPos);
+    Inc(wL);
+  end;
+  if wL>0 then
+    result:=aPos
+  else
+    result:=0;
+end;
+
+//true if swap needed
+function Compare(const aS1:string;const aS2:string):boolean;
+var
+  p1,p2:integer;
+  l1,l2:integer;
+begin
+  //skip end line comments
+  p1:=Pos('//',aS1);
+  p2:=Pos('//',aS2);
+  l1:=Length(aS1);
+  l2:=Length(aS2);
+  if p1>0 then
+    l1:=p1-1
+  else
+    p1:=l1;
+  if p2>0 then
+    l2:=p2-1
+  else
+    p2:=l2;
+  //search last ':'
+  p1:=LastColonParen(aS1,p1);
+  p2:=LastColonParen(aS2,p2);
+
+  //skip wihtespaces after ':'
+  if p1>0 then
+  begin
+    p1:=SkipWhiteSpaces(aS1,p1,l1);
+    l1:=Identifier(aS1,p1,l1);    //limit len to end of identifier.
+  end
+  else
+    l1:=0;
+  if p2>0 then
+  begin
+    p2:=SkipWhiteSpaces(aS2,p2,l2);
+    l2:=Identifier(aS2,p2,l2);    //limit len to end of identifier.
+  end
+  else
+    l2:=0;
+  result:=CompareStr(aS1,p1,l1,aS2,p2,l2)>0;
+end;
+
+// slow, but stable and num lines is small. :-)
+procedure InsertionSort(aLowIndex,aHighIndex:integer);
+var
+  I, J: Integer;
+  Item:string;
+begin
+  for I:= 1 + aLowIndex to aHighIndex do
+  begin
+    Item:= Lines[I];
+    J:= I-1;
+    while (J >= aLowIndex) and Compare(Lines[J],Item) do
+    begin
+      Lines[J+1]:=Lines[J];
+      Dec(J);
+    end;
+    Lines[J+1]:=Item;
+  end;
+end;
+
+var
+  p1,p2:TPoint;
+  numLines:integer;
+  wI:integer;
+  wText:string;
+begin
+  if not Caller.SelAvail then
+    exit;
+  p1 := Caller.BlockBegin;
+  p2 := Caller.BlockEnd;
+  if (p1.y > p2.y) then
+  begin
+    p1 := Caller.BlockEnd;
+    p2 := Caller.BlockBegin;
+  end;
+  numLines:=p2.y-p1.y+1;
+  if numLines<2 then
+    exit;
+  SetLength(Lines,numLines);
+  for wI:=0 to numLines-1 do
+  begin
+    Lines[wI]:=GetLine(p1.y+wI);
+  end;
+  InsertionSort(0,numLines-1);
+  wText:='';
+  for wI:=0 to numLines-2 do
+  begin
+    wText:=wText+Lines[wI]+#10;
+  end;
+  wText:=wText+Lines[numLines-1];
+  p1.x:=0;
+  p2.x:=99999;
+  Caller.TextBetweenPoints[p1, p2]:=wText;
+  SetLength(Lines,0);
+end.
+
