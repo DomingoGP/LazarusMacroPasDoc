@@ -50,16 +50,35 @@ var
   inSet:boolean;
   isFunction:boolean;
   parameter,parameterlower:string;
+  wOk:boolean;
 begin
   ecLineStart;
+  wOk:=false;
   start:=Caller.CaretXY;
   declaration:=Caller.Lines[start.Y-1];
   p:=1;
   text:=LowerCase(StrTokenPos(declaration,' ',p));
+  if text='class' then
+    text:=LowerCase(StrTokenPos(declaration,' ',p));
   isFunction:=false;
   if text='function' then
-    isFunction:=true
-  else if text<>'procedure' then
+  begin
+    wOk:=true;
+    isFunction:=true;
+  end
+  else if text='operator' then
+  begin
+    wOk:=true;
+    isFunction:=true;
+  end
+  else if text='constructor' then
+    wOk:=true
+  else if text='destructor' then
+    wOk:=true
+  else if text='procedure' then
+    wOk:=true;
+
+  if wOk=false then
     exit;
 
   line:=0;
@@ -130,7 +149,8 @@ begin
     end
     else
     begin
-      parameters:=parameters+declaration[p];
+      if openParens=1 then
+        parameters:=parameters+declaration[p];
     end;
 
     inc(p);
@@ -163,12 +183,14 @@ begin
     else if Pos('out',parameterlower)>0 then
       parameter:=Copy(parameter,5,l-4);
     parameter:=Trim(parameter);
-    text:=text+'  @param('+parameter+' description )'+#10;
+    if parameter<>'' then
+      text:=text+'  @param('+parameter+' description )'+#10;
   end;
   if isFunction then
     text:=text+'  @returns( description )'+#10;
   text:=text+'  @raises( none )'+#10;
   text:=text+'}'+#10;
-  //Caller.CaretXY:=start;
+  start.X:=0;
+  Caller.CaretXY:=start;
   Caller.insertTextAtCaret(text,scamEnd);
 end.
