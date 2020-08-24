@@ -1,0 +1,148 @@
+//AlignFunctionProcedureNames
+//Align procedures and functions names of selected text.
+// Author: Domingo Galmés  24/08/2020
+// atomic undo.
+
+const
+  optAscendentOrder=true;
+  optIgnoreCase=true;
+  optSkipWhithespates=true;
+
+var
+  Lines:array of string;
+
+  function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
+  var
+    wI: integer;
+    wL: integer;
+    wStart: integer;
+  begin
+    wL := Length(aStr);
+     //skip delimiters
+    wI := aPos;
+    while wI <= wL do
+    begin
+      if Pos(aStr[wI],aDelimiters) = 0 then
+        break;
+      Inc(wI);
+    end;
+    if wI > wL then // all chars are delimiters
+    begin
+      Result := '';
+      aPos := 0;
+      Exit;
+    end;
+    wStart := wI;
+    while wI <= wL do // while not delimiters
+    begin
+      if Pos(aStr[wI],aDelimiters) > 0 then
+        Break;
+      Inc(wI);
+    end;
+    result := Copy(aStr, wStart, wI - wStart);
+    Inc(wI);   //skip final delimiter (only one)
+    if wI<=wL then
+      aPos:=wI
+    else
+      aPos:=0;
+  end;
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+function ProcessLine(const aLine:string):string;
+var
+  p,pc,spaces:integer;
+  text:string;
+  wOk:boolean;
+  spWanted:integer;
+  spToInsert:string;
+begin
+  result:=aLine;
+  wOk:=false;
+  p:=1;
+  text:=LowerCase(StrTokenPos(aLine,' ',p));
+  if text='class' then
+    text:=LowerCase(StrTokenPos(aLine,' ',p));
+  if text='function' then
+  begin
+    wOk:=true;
+    spWanted:=2;
+    spToInsert:='  ';
+  end
+  else if text='operator' then
+  begin
+    wOk:=true;
+    spWanted:=2;
+    spToInsert:='  ';
+  end
+  else if text='procedure' then
+  begin
+    wOk:=true;
+    spWanted:=1;
+    spToInsert:=' ';
+  end
+  else if text='constructor' then
+  begin
+    wOk:=true;
+    spWanted:=1;
+    spToInsert:=' ';
+  end
+  else if text='destructor' then
+  begin
+    wOk:=true;
+    spWanted:=2;
+    spToInsert:='  ';
+  end;
+  if wOk=false then
+    exit;
+  pc:=p-1; //first char after 'function/procedure'
+  spaces:=0;
+  while (pc<=length(aLine)) and (aLine[pc]=' ') do
+  begin
+    inc(spaces);
+    inc(pc);
+  end;
+  if spaces<>spWanted then
+    result:=Copy(aLine,1,p-2)+spToInsert+Copy(aLine,p-1+spaces,length(aLine));
+end;
+
+var
+  p1,p2:TPoint;
+  numLines:integer;
+  wI:integer;
+  wText:string;
+begin
+  if not Caller.SelAvail then
+    exit;
+  p1 := Caller.BlockBegin;
+  p2 := Caller.BlockEnd;
+  if (p1.y > p2.y) then
+  begin
+    p1 := Caller.BlockEnd;
+    p2 := Caller.BlockBegin;
+  end;
+  numLines:=p2.y-p1.y+1;
+  if numLines<2 then
+    exit;
+  SetLength(Lines,numLines);
+  for wI:=0 to numLines-1 do
+  begin
+    Lines[wI]:=ProcessLine(GetLine(p1.y+wI));
+  end;
+  wText:='';
+  for wI:=0 to numLines-2 do
+  begin
+    wText:=wText+Lines[wI]+#10;
+  end;
+  wText:=wText+Lines[numLines-1];
+  p1.x:=0;
+  p2.x:=99999;
+  Caller.TextBetweenPoints[p1, p2]:=wText;
+  SetLength(Lines,0);
+end.
+
