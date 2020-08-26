@@ -2,6 +2,14 @@
 // Execute with caret in the precedure/function line declaration.
 // Autor: Domingo Galmés  dgalmesp@gmail.com  21/08/2020
 // public domain.
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
 function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
 var
   wI: integer;
@@ -38,159 +46,196 @@ begin
     aPos:=0;
 end;
 
+function ScanFunctionProcedure(const aY:integer;var aLineOffset:integer;var aFnName:string;var aFnParameters:string;var aIsFunction:boolean):boolean;
+var
+  wSourceLine:string;
+  wAux:string;
+  wInComment:boolean;
+  wInSet:boolean;
+  wOpenParens:integer;
+  wLen,wPos:integer;
+begin
+  result:=false;
+  wSourceLine:=GetLine(aY+aLineOffset);
+  wPos:=1;
+  wAux:=LowerCase(StrTokenPos(wSourceLine,' ',wPos));
+  if wAux='class' then
+    wAux:=LowerCase(StrTokenPos(wSourceLine,' ',wPos));
+  aIsFunction:=false;
+  if wAux='function' then
+  begin
+    result:=true;
+    aIsFunction:=true;
+  end
+  else if wAux='operator' then
+  begin
+    result:=true;
+    aIsFunction:=true;
+  end
+  else if wAux='constructor' then
+    result:=true
+  else if wAux='destructor' then
+    result:=true
+  else if wAux='procedure' then
+    result:=true;
+
+  if result=true then
+  begin
+    // search '(' parameters start
+    wOpenParens:=0;
+    wLen:=length(wSourceLine);
+    //wPos:=1;
+    aFnName:='';
+    while wPos<=wLen do
+    begin
+      if wSourceLine[wPos]='(' then
+      begin
+        Inc(wOpenParens);
+        inc(wPos);
+        break;
+      end;
+      if (wSourceLine[wPos]<>':') and (wSourceLine[wPos]<>';') then
+      begin
+        aFnName:=aFnName+wSourceLine[wPos];
+      end
+      else
+      begin
+        inc(wPos);
+        break;
+      end;
+      inc(wPos);
+    end;
+    aFnName:=Trim(aFnName);
+    // seachr ')' parameters end
+    wInComment:=false;
+    wInSet:=false;
+    while wPos<=wLen do
+    begin
+      if wSourceLine[wPos]=#39 then  // 'in string'.
+      begin
+        inc(wPos);
+        while (wPos<=wLen) do
+        begin
+          if wSourceLine[wPos]=#39 then
+          begin
+            if (wPos<wLen) and (wSourceLine[wPos+1]=#39) then   // escape '
+              inc(wPos)
+            else
+              break;
+          end;
+          inc(wPos);
+        end;
+      end
+      else if (wSourceLine[wPos]='{') then
+          wInComment:=true
+      else if wInComment=true then
+      begin
+        if wSourceLine[wPos]='}' then
+          wInComment:=false;
+      end
+      else if (wSourceLine[wPos]='[') then
+          wInSet:=true
+      else if wInSet=true then
+      begin
+        if wSourceLine[wPos]=']' then
+          wInSet:=false;
+      end
+      else if wSourceLine[wPos]='(' then
+      begin
+        Inc(wOpenParens);
+      end
+      else if wSourceLine[wPos]=')' then
+      begin
+        Dec(wOpenParens);
+        if wOpenParens=0 then
+          break;
+      end
+      else if wSourceLine[wPos]=':' then
+      begin
+         if wOpenParens=0 then
+           break;
+         if wOpenParens=1 then
+           aFnParameters:=aFnParameters+':';
+      end
+      else if wSourceLine[wPos]=';' then
+      begin
+         if wOpenParens=0 then
+           break;
+         if wOpenParens=1 then
+           aFnParameters:=aFnParameters+';';
+      end
+      else if wSourceLine[wPos]='/'  then  //aLineOffset comment
+      begin
+        if (wPos<wLen) and (wSourceLine[wPos+1]='/') then
+        begin
+          wPos:=wLen+1;  //next aLineOffset.
+        end;
+      end
+      else
+      begin
+        if wOpenParens=1 then
+          aFnParameters:=aFnParameters+wSourceLine[wPos];
+      end;
+      inc(wPos);
+      if wPos>wLen then
+      begin
+        //TODO: CONTROL end of file and break loop.
+        inc(aLineOffset);
+        wSourceLine:=GetLine(aY+aLineOffset);
+        wLen:=length(wSourceLine);
+        wPos:=1;
+      end;
+    end;
+  end;
+end;
+
 var
   text:string;
   start:TPoint;
   declaration:string;
-  openParens:integer;
   p:integer;
-  parameters:string;
   l,line:integer;
-  inComment:boolean;
-  inSet:boolean;
   isFunction:boolean;
   parameter,parameterlower:string;
-  wOk:boolean;
+  fnName:string;
+  fnParameters:string;
 begin
   ecLineStart;
-  wOk:=false;
   start:=Caller.CaretXY;
-  declaration:=Caller.Lines[start.Y-1];
-  p:=1;
-  text:=LowerCase(StrTokenPos(declaration,' ',p));
-  if text='class' then
-    text:=LowerCase(StrTokenPos(declaration,' ',p));
-  isFunction:=false;
-  if text='function' then
-  begin
-    wOk:=true;
-    isFunction:=true;
-  end
-  else if text='operator' then
-  begin
-    wOk:=true;
-    isFunction:=true;
-  end
-  else if text='constructor' then
-    wOk:=true
-  else if text='destructor' then
-    wOk:=true
-  else if text='procedure' then
-    wOk:=true;
-
-  if wOk=false then
-    exit;
 
   line:=0;
-  // search '(' parameters start
-  openParens:=0;
-  l:=length(declaration);
-  //p:=1;
-  while p<=l do
+  if ScanFunctionProcedure(start.Y,line,FnName,fnParameters,isFunction)=true then
   begin
-    if declaration[p]='(' then
+    // separamos fnParameters por , o ; y despreciamos despues de :
+    //{fnParameters: aV1,aV2,aV3:integer;const aS1:string= }
+    //procedure Hola2(aV1,aV2,aV3:integer;const aS1:string='27');
+    text:='{ Description '+#10;
+    p:=1;
+    while p>0 do
     begin
-      Inc(openParens);
-      inc(p);
-      break;
+      parameter:=StrTokenPos(fnParameters,',;',p);
+      l:=1;
+      parameter:=Trim(StrTokenPos(parameter,':',l));
+      parameterlower:=LowerCase(parameter);
+      l:=length(parameter);
+      if Pos('var',parameterlower)>0 then
+        parameter:=Copy(parameter,5,l-4)
+      else if Pos('constref',parameterlower)>0 then
+        parameter:=Copy(parameter,10,l-9)
+      else if Pos('const',parameterlower)>0 then
+        parameter:=Copy(parameter,7,l-6)
+      else if Pos('out',parameterlower)>0 then
+        parameter:=Copy(parameter,5,l-4);
+      parameter:=Trim(parameter);
+      if parameter<>'' then
+        text:=text+'  @param('+parameter+' description )'+#10;
     end;
-    inc(p);
+    if isFunction then
+      text:=text+'  @returns( description )'+#10;
+    text:=text+'  @raises( none )'+#10;
+    text:=text+'}'+#10;
+    start.X:=0;
+    Caller.CaretXY:=start;
+    Caller.insertTextAtCaret(text,scamEnd);
   end;
-  // seachr ')' parameters end
-  inComment:=false;
-  inSet:=false;
-  while p<=l do
-  begin
-    if declaration[p]=#39 then  // 'in string'.
-    begin
-      inc(p);
-      while (p<=l) do
-      begin
-        if declaration[p]=#39 then
-        begin
-          if (p<l) and (declaration[p+1]=#39) then   // escape '
-            inc(p)
-          else
-            break;
-        end;
-        inc(p);
-      end;
-    end
-    else if (declaration[p]='{') then
-        inComment:=true
-    else if inComment=true then
-    begin
-      if declaration[p]='}' then
-        inComment:=false;
-    end
-    else if (declaration[p]='[') then
-        inSet:=true
-    else if inSet=true then
-    begin
-      if declaration[p]=']' then
-        inSet:=false;
-    end
-    else if declaration[p]='(' then
-    begin
-      Inc(openParens);
-    end
-    else if declaration[p]=')' then
-    begin
-      Dec(openParens);
-      if openParens=0 then
-        break;
-    end
-    else if declaration[p]='/'  then  //line comment
-    begin
-      if (p<l) and (declaration[p+1]='/') then
-      begin
-        p:=l+1;  //next line.
-      end;
-    end
-    else
-    begin
-      if openParens=1 then
-        parameters:=parameters+declaration[p];
-    end;
-
-    inc(p);
-    if p>l then
-    begin
-      inc(line);
-      declaration:=Caller.Lines[start.Y-1+line];
-      l:=length(declaration);
-      p:=1;
-    end;
-  end;
-  // separamos parameters por , o ; y despreciamos despues de :
-  //{parameters: aV1,aV2,aV3:integer;const aS1:string= }
-  //procedure Hola2(aV1,aV2,aV3:integer;const aS1:string='27');
-  text:='{ Description '+#10;
-  p:=1;
-  while p>0 do
-  begin
-    parameter:=StrTokenPos(parameters,',;',p);
-    l:=1;
-    parameter:=Trim(StrTokenPos(parameter,':',l));
-    parameterlower:=LowerCase(parameter);
-    l:=length(parameter);
-    if Pos('var',parameterlower)>0 then
-      parameter:=Copy(parameter,5,l-4)
-    else if Pos('constref',parameterlower)>0 then
-      parameter:=Copy(parameter,10,l-9)
-    else if Pos('const',parameterlower)>0 then
-      parameter:=Copy(parameter,7,l-6)
-    else if Pos('out',parameterlower)>0 then
-      parameter:=Copy(parameter,5,l-4);
-    parameter:=Trim(parameter);
-    if parameter<>'' then
-      text:=text+'  @param('+parameter+' description )'+#10;
-  end;
-  if isFunction then
-    text:=text+'  @returns( description )'+#10;
-  text:=text+'  @raises( none )'+#10;
-  text:=text+'}'+#10;
-  start.X:=0;
-  Caller.CaretXY:=start;
-  Caller.insertTextAtCaret(text,scamEnd);
 end.

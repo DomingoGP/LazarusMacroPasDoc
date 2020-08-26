@@ -11,41 +11,61 @@ const
 var
   Lines:array of string;
 
-  function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
-  var
-    wI: integer;
-    wL: integer;
-    wStart: integer;
+//select full lines.
+procedure GetSelectedBlockFullLines(var p1:TPoint;var p2:TPoint);
+begin
+  p1 := Caller.BlockBegin;
+  p2 := Caller.BlockEnd;
+  if (p1.y > p2.y) then
   begin
-    wL := Length(aStr);
-     //skip delimiters
-    wI := aPos;
-    while wI <= wL do
-    begin
-      if Pos(aStr[wI],aDelimiters) = 0 then
-        break;
-      Inc(wI);
-    end;
-    if wI > wL then // all chars are delimiters
-    begin
-      Result := '';
-      aPos := 0;
-      Exit;
-    end;
-    wStart := wI;
-    while wI <= wL do // while not delimiters
-    begin
-      if Pos(aStr[wI],aDelimiters) > 0 then
-        Break;
-      Inc(wI);
-    end;
-    result := Copy(aStr, wStart, wI - wStart);
-    Inc(wI);   //skip final delimiter (only one)
-    if wI<=wL then
-      aPos:=wI
-    else
-      aPos:=0;
+    p1 := Caller.BlockEnd;
+    p2 := Caller.BlockBegin;
   end;
+  if p2.x<=1 then
+  begin
+    if p2.y>1 then
+      p2.y:=p2.y-1;
+  end;
+  p2.x:=Length(Caller.Lines[p2.y-1])+1;   //last char
+  p2:=Caller.PhysicalToLogicalPos(p2);
+  p1.x:=1;
+end;
+
+function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
+var
+  wI: integer;
+  wL: integer;
+  wStart: integer;
+begin
+  wL := Length(aStr);
+   //skip delimiters
+  wI := aPos;
+  while wI <= wL do
+  begin
+    if Pos(aStr[wI],aDelimiters) = 0 then
+      break;
+    Inc(wI);
+  end;
+  if wI > wL then // all chars are delimiters
+  begin
+    Result := '';
+    aPos := 0;
+    Exit;
+  end;
+  wStart := wI;
+  while wI <= wL do // while not delimiters
+  begin
+    if Pos(aStr[wI],aDelimiters) > 0 then
+      Break;
+    Inc(wI);
+  end;
+  result := Copy(aStr, wStart, wI - wStart);
+  Inc(wI);   //skip final delimiter (only one)
+  if wI<=wL then
+    aPos:=wI
+  else
+    aPos:=0;
+end;
 
 // aLineNum 1..nnn
 // Caller.Lines[0...nnn-1]
@@ -119,13 +139,7 @@ var
 begin
   if not Caller.SelAvail then
     exit;
-  p1 := Caller.BlockBegin;
-  p2 := Caller.BlockEnd;
-  if (p1.y > p2.y) then
-  begin
-    p1 := Caller.BlockEnd;
-    p2 := Caller.BlockBegin;
-  end;
+  GetSelectedBlockFullLines(p1,p2);
   numLines:=p2.y-p1.y+1;
   if numLines<2 then
     exit;
@@ -140,8 +154,6 @@ begin
     wText:=wText+Lines[wI]+#10;
   end;
   wText:=wText+Lines[numLines-1];
-  p1.x:=0;
-  p2.x:=99999;
   Caller.TextBetweenPoints[p1, p2]:=wText;
   SetLength(Lines,0);
 end.
