@@ -1,0 +1,356 @@
+// Lazarus editor macro.  Sort selected functions/procedures declarations. keeps comments.
+// Autor: Domingo Galmés  dgalmesp@gmail.com  25/08/2020
+// public domain.
+
+const
+  optAscendentOrder=true;
+  optIgnoreCase=true;
+
+var
+  Lines:array of string;
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
+var
+  wI: integer;
+  wL: integer;
+  wStart: integer;
+begin
+  wL := Length(aStr);
+   //skip delimiters
+  wI := aPos;
+  while wI <= wL do
+  begin
+    if Pos(aStr[wI],aDelimiters) = 0 then
+      break;
+    Inc(wI);
+  end;
+  if wI > wL then // all chars are delimiters
+  begin
+    Result := '';
+    aPos := 0;
+    Exit;
+  end;
+  wStart := wI;
+  while wI <= wL do // while not delimiters
+  begin
+    if Pos(aStr[wI],aDelimiters) > 0 then
+      Break;
+    Inc(wI);
+  end;
+  result := Copy(aStr, wStart, wI - wStart);
+  Inc(wI);   //skip final delimiter (only one)
+  if wI<=wL then
+    aPos:=wI
+  else
+    aPos:=0;
+end;
+
+function ToLower(aC:char):char;
+begin
+  result:=aC;
+  if (ac>='A') and (aC<='Z') then
+    result:=Chr(Ord(aC)+32);
+end;
+
+function CompareStr(const aS1:string;aPos1:integer;aLen1:integer;const aS2:string;aPos2:integer;aLen2:integer):integer;
+var
+  wC1,wC2:char;
+begin
+  result:=0;
+  if (aLen1>0) and (aLen2>0) then
+  begin
+    while (aPos1<=aLen1) and (aPos2<=aLen2) do
+    begin
+      wC1:=aS1[aPos1];
+      wC2:=aS2[aPos2];
+      if optIgnoreCase=true then
+      begin
+        wC1:=ToLower(wC1);
+        wC2:=ToLower(wC2);
+      end;
+      result:=Ord(wC1)-Ord(wC2);
+      if result<>0 then
+      begin
+        if optAscendentOrder=false then
+          result:= -result;
+        Exit;
+      end;
+       Inc(aPos1);
+       Inc(aPos2);
+     end;
+  end;
+  if (aLen1<=0) or (aPos1<1) or (aPos1>aLen1) then
+    wC1:=#0
+  else
+    wC1:=aS1[aPos1];
+  if (aLen2<=0) or (aPos2<1) or (aPos2>aLen2) then
+    wC2:=#0
+  else
+    wC2:=aS2[aPos2];
+  if optIgnoreCase=true then
+  begin
+    wC1:=ToLower(wC1);
+    wC2:=ToLower(wC2);
+  end;
+  result:=Ord(wC1)-Ord(wC2);
+  if optAscendentOrder=false then
+    result:= -result;
+end;
+
+//true if swap needed
+function Compare(const aS1:string;const aS2:string):boolean;
+begin
+  result:=CompareStr(aS1,1,Length(aS1),aS2,1,Length(aS2))>0;
+end;
+
+// slow, but stable and num lines is small. :-)
+procedure InsertionSort(aLowIndex,aHighIndex:integer);
+var
+  I, J: Integer;
+  Item:string;
+begin
+  for I:= 1 + aLowIndex to aHighIndex do
+  begin
+    Item:= Lines[I];
+    J:= I-1;
+    while (J >= aLowIndex) and Compare(Lines[J],Item) do
+    begin
+      Lines[J+1]:=Lines[J];
+      Dec(J);
+    end;
+    Lines[J+1]:=Item;
+  end;
+end;
+
+//select full lines.
+procedure GetSelectedBlockFullLines(var p1:TPoint;var p2:TPoint);
+begin
+  p1 := Caller.BlockBegin;
+  p2 := Caller.BlockEnd;
+  if (p1.y > p2.y) then
+  begin
+    p1 := Caller.BlockEnd;
+    p2 := Caller.BlockBegin;
+  end;
+  if p2.x<=1 then
+  begin
+    if p2.y>1 then
+      p2.y:=p2.y-1;
+  end;
+  p2.x:=Length(Caller.Lines[p2.y-1])+1;   //last char
+  p2:=Caller.PhysicalToLogicalPos(p2);
+  p1.x:=1;
+end;
+
+
+function ScanFunctionProcedure(const aY:integer;var aLineOffset:integer;var aFnName:string;var aFnParameters:string;var aIsFunction:boolean):boolean;
+var
+  wSourceLine:string;
+  wAux:string;
+  wInComment:boolean;
+  wInSet:boolean;
+  wOpenParens:integer;
+  wLen,wPos:integer;
+begin
+  result:=false;
+  wSourceLine:=GetLine(aY+aLineOffset);
+  wPos:=1;
+  wAux:=LowerCase(StrTokenPos(wSourceLine,' ',wPos));
+  if wAux='class' then
+    wAux:=LowerCase(StrTokenPos(wSourceLine,' ',wPos));
+  aIsFunction:=false;
+  if wAux='function' then
+  begin
+    result:=true;
+    aIsFunction:=true;
+  end
+  else if wAux='operator' then
+  begin
+    result:=true;
+    aIsFunction:=true;
+  end
+  else if wAux='constructor' then
+    result:=true
+  else if wAux='destructor' then
+    result:=true
+  else if wAux='procedure' then
+    result:=true;
+
+  if result=true then
+  begin
+    // search '(' parameters start
+    wOpenParens:=0;
+    wLen:=length(wSourceLine);
+    //wPos:=1;
+    aFnName:='';
+    while wPos<=wLen do
+    begin
+      if wSourceLine[wPos]='(' then
+      begin
+        Inc(wOpenParens);
+        inc(wPos);
+        break;
+      end;
+      if (wSourceLine[wPos]<>':') and (wSourceLine[wPos]<>';') then
+      begin
+        aFnName:=aFnName+wSourceLine[wPos];
+      end
+      else
+      begin
+        inc(wPos);
+        break;
+      end;
+      inc(wPos);
+    end;
+    aFnName:=Trim(aFnName);
+    // seachr ')' parameters end
+    wInComment:=false;
+    wInSet:=false;
+    while wPos<=wLen do
+    begin
+      if wSourceLine[wPos]=#39 then  // 'in string'.
+      begin
+        inc(wPos);
+        while (wPos<=wLen) do
+        begin
+          if wSourceLine[wPos]=#39 then
+          begin
+            if (wPos<wLen) and (wSourceLine[wPos+1]=#39) then   // escape '
+              inc(wPos)
+            else
+              break;
+          end;
+          inc(wPos);
+        end;
+      end
+      else if (wSourceLine[wPos]='{') then
+          wInComment:=true
+      else if wInComment=true then
+      begin
+        if wSourceLine[wPos]='}' then
+          wInComment:=false;
+      end
+      else if (wSourceLine[wPos]='[') then
+          wInSet:=true
+      else if wInSet=true then
+      begin
+        if wSourceLine[wPos]=']' then
+          wInSet:=false;
+      end
+      else if wSourceLine[wPos]='(' then
+      begin
+        Inc(wOpenParens);
+      end
+      else if wSourceLine[wPos]=')' then
+      begin
+        Dec(wOpenParens);
+        if wOpenParens=0 then
+          break;
+      end
+      else if wSourceLine[wPos]=':' then
+      begin
+         if wOpenParens=0 then
+           break;
+         if wOpenParens=1 then
+           aFnParameters:=aFnParameters+':';
+      end
+      else if wSourceLine[wPos]=';' then
+      begin
+         if wOpenParens=0 then
+           break;
+         if wOpenParens=1 then
+           aFnParameters:=aFnParameters+';';
+      end
+      else if wSourceLine[wPos]='/'  then  //aLineOffset comment
+      begin
+        if (wPos<wLen) and (wSourceLine[wPos+1]='/') then
+        begin
+          wPos:=wLen+1;  //next aLineOffset.
+        end;
+      end
+      else
+      begin
+        if wOpenParens=1 then
+          aFnParameters:=aFnParameters+wSourceLine[wPos];
+      end;
+      inc(wPos);
+      if wPos>wLen then
+      begin
+        //TODO: CONTROL end of file and break loop.
+        inc(aLineOffset);
+        wSourceLine:=GetLine(aY+aLineOffset);
+        wLen:=length(wSourceLine);
+        wPos:=1;
+      end;
+    end;
+  end;
+end;
+
+
+var
+  text:string;
+  aux:string;
+  fnName:string;
+  fnCount:integer;
+  fnLineEnd,fnFirstFnLine:integer;
+  parameters:string;
+  p:integer;
+  l,line:integer;
+  parameter,parameterlower:string;
+  p1,p2:TPoint;
+  numLines:integer;
+  fromLine,toLine:integer;
+  isFunction:boolean;
+begin
+  GetSelectedBlockFullLines(p1,p2);
+  numLines:=p2.y-p1.y+1;
+  if numLines<2 then
+    exit;
+  SetLength(Lines,numLines);
+  line:=0;
+  fnCount:=0;
+  fnFirstFnLine:=p1.y;
+  while line<numLines do
+  begin
+    if ScanFunctionProcedure(p1.Y,line,fnName,parameters,isFunction)=true then
+    begin
+      fnLineEnd:=p1.Y+line;
+      Lines[fnCount]:=fnName+'  '+inttostr(fnFirstFnLine) +' '+inttostr(fnLineEnd);
+      fnFirstFnLine:=fnLineEnd+1;
+      Inc(fnCount);
+    end;
+    Inc(line);
+  end;
+  //adjust range to the last line of the last function/procedure.
+  p2.y:=fnLineEnd;
+  p2.x:=Length(Caller.Lines[p2.y-1])+1;   //last char
+  p2:=Caller.PhysicalToLogicalPos(p2);
+
+  InsertionSort(0,fnCount-1);
+  text:='';
+  p:=0;
+  while p<fnCount do
+  begin
+    aux:=Lines[p];
+    l:=1;
+    StrTokenPos(aux,' ',l);
+    fromLine:=StrToInt(StrTokenPos(aux,' ',l));
+    toLine:=StrToInt(StrTokenPos(aux,' ',l));
+    for l := fromLine to toLine do
+    begin
+      text:=text+GetLine(l);
+      if (p<(fnCount-1)) or (l<toLine) then     // last line withoud LF
+        text:=text+#10;
+    end;
+    inc(p);
+  end;
+  Caller.TextBetweenPoints[p1, p2]:=text;
+  SetLength(Lines,0);
+end.

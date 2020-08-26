@@ -1,0 +1,226 @@
+//Sort Selected uses
+// Comments and ifdefs don't processed so result can be incorrect.
+// Author: Domingo Galmés  26/08/2020
+// atomic undo.
+
+const
+  optAscendentOrder=true;
+  optIgnoreCase=true;
+
+var
+  Lines:array of string;
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+function StrTokenPos(const aStr: string; const aDelimiters: string;var aPos:integer): string;
+var
+  wI: integer;
+  wL: integer;
+  wStart: integer;
+begin
+  wL := Length(aStr);
+   //skip delimiters
+  wI := aPos;
+  while wI <= wL do
+  begin
+    if Pos(aStr[wI],aDelimiters) = 0 then
+      break;
+    Inc(wI);
+  end;
+  if wI > wL then // all chars are delimiters
+  begin
+    Result := '';
+    aPos := 0;
+    Exit;
+  end;
+  wStart := wI;
+  while wI <= wL do // while not delimiters
+  begin
+    if Pos(aStr[wI],aDelimiters) > 0 then
+      Break;
+    Inc(wI);
+  end;
+  result := Copy(aStr, wStart, wI - wStart);
+  Inc(wI);   //skip final delimiter (only one)
+  if wI<=wL then
+    aPos:=wI
+  else
+    aPos:=0;
+end;
+
+function ToLower(aC:char):char;
+begin
+  result:=aC;
+  if (ac>='A') and (aC<='Z') then
+    result:=Chr(Ord(aC)+32);
+end;
+
+function SkipWhiteSpacesCRLF(const aStr:string;aPos:integer;aLen:integer):integer;
+var
+  wC:char;
+begin
+  while (aPos<=aLen) do
+  begin
+    wC:=aStr[aPos];
+    if (wC<>' ') and (wC<>#9) and (wC<>#10) and (wC<>#13) then
+      break;
+    Inc(aPos);
+  end;
+  result:=aPos;
+end;
+
+function CompareStr(const aS1:string;aPos1:integer;aLen1:integer;const aS2:string;aPos2:integer;aLen2:integer):integer;
+var
+  wC1,wC2:char;
+begin
+  result:=0;
+  if (aLen1>0) and (aLen2>0) then
+  begin
+    while (aPos1<=aLen1) and (aPos2<=aLen2) do
+    begin
+      wC1:=aS1[aPos1];
+      wC2:=aS2[aPos2];
+      if optIgnoreCase=true then
+      begin
+        wC1:=ToLower(wC1);
+        wC2:=ToLower(wC2);
+      end;
+      result:=Ord(wC1)-Ord(wC2);
+      if result<>0 then
+      begin
+        if optAscendentOrder=false then
+          result:= -result;
+        Exit;
+      end;
+       Inc(aPos1);
+       Inc(aPos2);
+     end;
+  end;
+  if (aLen1<=0) or (aPos1<1) or (aPos1>aLen1) then
+    wC1:=#0
+  else
+    wC1:=aS1[aPos1];
+  if (aLen2<=0) or (aPos2<1) or (aPos2>aLen2) then
+    wC2:=#0
+  else
+    wC2:=aS2[aPos2];
+  if optIgnoreCase=true then
+  begin
+    wC1:=ToLower(wC1);
+    wC2:=ToLower(wC2);
+  end;
+  result:=Ord(wC1)-Ord(wC2);
+  if optAscendentOrder=false then
+    result:= -result;
+end;
+
+//true if swap needed
+function Compare(const aS1:string;const aS2:string):boolean;
+var
+  l1,l2:integer;
+begin
+  l1:=Length(aS1);
+  l2:=Length(aS2);
+  result:=CompareStr(aS1,1,l1,aS2,1,l2)>0;
+end;
+
+// slow, but stable and num lines is small. :-)
+procedure InsertionSort(aLowIndex,aHighIndex:integer);
+var
+  I, J: Integer;
+  Item:string;
+begin
+  for I:= 1 + aLowIndex to aHighIndex do
+  begin
+    Item:= Lines[I];
+    J:= I-1;
+    while (J >= aLowIndex) and Compare(Lines[J],Item) do
+    begin
+      Lines[J+1]:=Lines[J];
+      Dec(J);
+    end;
+    Lines[J+1]:=Item;
+  end;
+end;
+
+var
+  p1,p2:TPoint;
+  numLines:integer;
+  wI:integer;
+  wText:string;
+  wTokenCount:integer;
+  wToken:string;
+  wP,wP2:integer;
+  wFirstChar,wLastChar:char;
+  wLineLen:integer;
+begin
+  if not Caller.SelAvail then
+    exit;
+  p1 := Caller.BlockBegin;
+  p2 := Caller.BlockEnd;
+  if (p1.y > p2.y) then
+  begin
+    p1 := Caller.BlockEnd;
+    p2 := Caller.BlockBegin;
+  end;
+  wText:=Caller.SelText;
+  wP:=1;
+  wTokenCount:=0;
+  StrTokenPos(wText,',;',wP);
+  while wP<>0 do
+  begin
+    Inc(wTokenCount);
+    StrTokenPos(wText,',;',wP);
+  end;
+  if wTokenCount<2 then
+    exit;
+  SetLength(Lines,wTokenCount);
+  wP:=1;
+  wP:=SkipWhiteSpacesCRLF(wText,wP,length(wText));
+  wFirstChar:=wText[wP];
+  for wI:=0 to wTokenCount-1 do
+  begin
+    wP2:=wP;
+    Lines[wI]:=Trim(StrTokenPos(wText,',;',wP));
+  end;
+  wToken:=Copy(wText,wP2,length(wText));
+  if Pos(';',wToken)>0 then
+    wLastChar:=';'
+  else if Pos(',',wToken)>0 then
+    wLastChar:=',';
+  InsertionSort(0,wTokenCount-1);
+  if wFirstChar=',' then
+    wText:=', '
+  else
+    wText:='';
+  wLineLen:=0;
+  for wI:=0 to wTokenCount-1 do
+  begin
+    if (length(Lines[wI])>40) and (length(wText)>2) then
+    begin
+      wText:=wText+#10;
+      wLineLen:=0;
+    end;
+    if wLineLen>70 then
+    begin
+      wText:=wText+#10;
+      wLineLen:=0;
+     end;
+    wText:=wText+Lines[wI];
+    if wI<(wTokenCount-1) then
+      wText:=wText + ', ';
+    wLineLen:=wLineLen+length(Lines[wI])+2;
+  end;
+  if wLastChar=',' then
+    wText:=wText + ','
+  else if wLastChar=';' then
+    wText:=wText + ';';
+  Caller.TextBetweenPoints[p1, p2]:=wText;
+  SetLength(Lines,0);
+end.
+
