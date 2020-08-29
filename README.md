@@ -28,3 +28,6 @@ Executing the macro with the caret in the line of function declaration will inse
     function AddRadioButton(const aCaption: string; aChecked: boolean = False): TRadioButton;
 
 **Requeriments**: The package *editormacroscript* must be installed in the ide.
+
+
+[More Lazarus macros and information of the other macros](https://wiki.freepascal.org/IDE_Window:_Editor_Macros)
