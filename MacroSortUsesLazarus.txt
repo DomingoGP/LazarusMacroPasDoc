@@ -24,6 +24,12 @@ var
   wStart: integer;
 begin
   wL := Length(aStr);
+  if (aPos<1) then
+  begin
+    result:='';
+    aPos:=0;
+    exit;
+  end;
    //skip delimiters
   wI := aPos;
   while wI <= wL do
@@ -170,12 +176,13 @@ begin
   end;
   wText:=Caller.SelText;
   wP:=1;
+  wP:=SkipWhiteSpacesCRLF(wText,wP,length(wText));
   wTokenCount:=0;
-  StrTokenPos(wText,',;',wP);
-  while wP<>0 do
+  wToken:=Trim(StrTokenPos(wText,',;',wP));
+  while wToken<>'' do
   begin
     Inc(wTokenCount);
-    StrTokenPos(wText,',;',wP);
+    wToken:=Trim(StrTokenPos(wText,',;',wP));
   end;
   if wTokenCount<2 then
     exit;
@@ -192,7 +199,9 @@ begin
   if Pos(';',wToken)>0 then
     wLastChar:=';'
   else if Pos(',',wToken)>0 then
-    wLastChar:=',';
+    wLastChar:=','
+  else
+    wLastChar:=' ';
   InsertionSort(0,wTokenCount-1);
   if wFirstChar=',' then
     wText:=', '
@@ -216,10 +225,8 @@ begin
       wText:=wText + ', ';
     wLineLen:=wLineLen+length(Lines[wI])+2;
   end;
-  if wLastChar=',' then
-    wText:=wText + ','
-  else if wLastChar=';' then
-    wText:=wText + ';';
+  if (wLastChar=',') or (wLastChar=';') then
+    wText:=wText + wLastChar;
   Caller.TextBetweenPoints[p1, p2]:=wText;
   SetLength(Lines,0);
 end.
