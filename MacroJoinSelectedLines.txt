@@ -1,0 +1,50 @@
+// Joins selected lines
+// Author: Domingo Galmés  20/11/2020
+// atomic undo.
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+//select full lines.
+procedure GetSelectedBlockFullLines(var p1:TPoint;var p2:TPoint);
+begin
+  p1 := Caller.BlockBegin;
+  p2 := Caller.BlockEnd;
+  if (p1.y > p2.y) then
+  begin
+    p1 := Caller.BlockEnd;
+    p2 := Caller.BlockBegin;
+  end;
+  if p2.x<=1 then
+  begin
+    if p2.y>1 then
+      p2.y:=p2.y-1;
+  end;
+  p2.x:=Length(Caller.Lines[p2.y-1])+1;   //last char
+  p2:=Caller.PhysicalToLogicalPos(p2);
+  p1.x:=1;
+end;
+
+var
+  p1,p2:TPoint;
+  numLines:integer;
+  wI:integer;
+  wText:string;
+begin
+  if not Caller.SelAvail then
+    exit;
+  GetSelectedBlockFullLines(p1,p2);
+  numLines:=p2.y-p1.y+1;
+  if numLines<2 then
+    exit;
+  wText:='';
+  for wI:=0 to numLines-1 do
+  begin
+    wText:=wText + GetLine(p1.y+wI);
+  end;
+  Caller.TextBetweenPoints[p1, p2]:=wText;
+end.
