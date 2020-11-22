@@ -35,8 +35,8 @@ var
   wI:integer;
   wText:string;
   wPos:integer;
-  wSeparator:string;
-  wLine:string;
+  wSeparador:string;
+  wLinea:string;
   wSepLen:integer;
 begin
   if not Caller.SelAvail then
@@ -45,22 +45,22 @@ begin
   numLines:=p2.y-p1.y+1;
 
   wText:='';
-  wSeparator:=',';
-  if not InputQuery( 'Split lines','Separator: ',wSeparator) then
+  wSeparador:=',';
+  if not InputQuery( 'Split lines','Separator: ',wSeparador) then
     Exit;
-  wSepLen:=length(wSeparator);
+  wSepLen:=length(wSeparador);
   for wI:=0 to numLines-1 do
   begin
-    wLine:= GetLine(p1.y+wI);
-    wPos:=Pos(wSeparator,wLine);
+    wLinea:= GetLine(p1.y+wI);
+    wPos:=Pos(wSeparador,wLinea);
     while wPos>0 do
     begin
-      wText:=wText + Copy(wLine,1,wPos+wSepLen) + #10;
-      wLine:=Copy(wLine,wPos+wSepLen+1,length(wLine));
-      wPos:=Pos(wSeparator,wLine);
+      wText:=wText + Trim(Copy(wLinea,1,wPos+wSepLen-1)) + #10;
+      wLinea:=Trim(Copy(wLinea,wPos+wSepLen,length(wLinea)));
+      wPos:=Pos(wSeparador,wLinea);
     end;
-    if length(wLine)>0 then
-      wText:=wText + wLine + #10;
+    if length(wLinea)>0 then
+      wText:=wText + wLinea + #10;
   end;
   Caller.TextBetweenPoints[p1, p2]:=wText;
 end.

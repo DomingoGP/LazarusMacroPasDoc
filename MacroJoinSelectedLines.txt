@@ -1,4 +1,4 @@
-// Joins selected lines
+//Joins selected lines
 // Author: Domingo Galmés  20/11/2020
 // atomic undo.
 
@@ -34,6 +34,7 @@ var
   numLines:integer;
   wI:integer;
   wText:string;
+  wSeparator:string;
 begin
   if not Caller.SelAvail then
     exit;
@@ -42,9 +43,14 @@ begin
   if numLines<2 then
     exit;
   wText:='';
+  wSeparator:=' ';
+  if not InputQuery( 'Join lines','Separator: ',wSeparator) then
+    Exit;
   for wI:=0 to numLines-1 do
   begin
-    wText:=wText + GetLine(p1.y+wI);
+    if (wI>0) and (wSeparator<>'') then
+      wText:=wText+wSeparator;
+    wText:=wText + Trim(GetLine(p1.y+wI));
   end;
   Caller.TextBetweenPoints[p1, p2]:=wText;
 end.
