@@ -1,0 +1,114 @@
+// Convierte la seleccion en una cadena de caracteres
+// Author: Domingo Galmés  28/11/2021
+// atomic undo.
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+//select full lines.
+procedure GetSelectedBlockFullLines(var aP1:TPoint;var aP2:TPoint);
+begin
+  aP1 := Caller.BlockBegin;
+  aP2 := Caller.BlockEnd;
+  if (aP1.y > aP2.y) then
+  begin
+    aP1 := Caller.BlockEnd;
+    aP2 := Caller.BlockBegin;
+  end;
+  if aP2.x<=1 then
+  begin
+    if aP2.y>1 then
+      aP2.y:=aP2.y-1;
+  end;
+  aP2.x:=Length(Caller.Lines[aP2.y-1])+1;   //last char
+  aP2:=Caller.PhysicalToLogicalPos(aP2);
+  aP1.x:=1;
+end;
+
+function PosEx(aSub:string;aStr:string;aIndex:integer):integer;
+var
+  wI,wI2:integer;
+  wJ:integer;
+  wLS,wLS2,wLSub:integer;
+begin
+  result:=-1;
+  wLS:=length(aStr);
+  wLSub:=length(aSub);
+  if aSub='' then
+    Exit;
+  if wLSub>wLS then
+    Exit;
+  wLS2:=wLS-wLSub+1;
+  for wI := aIndex to wLS2 do
+  begin
+    wJ:=1;
+    wI2:=wI;
+    while (wI2<=wLS) and (wJ<=wLSub) and (aStr[wI2]=aSub[wJ]) do
+    begin
+      if wJ=wLSub then
+      begin
+        result:=wI;
+        exit;
+      end;
+      inc(wI2);
+      inc(wJ);
+    end;
+  end;
+end;
+
+function ReplaceAll(aStr:string;aOld:string;aNew:string):string;
+var
+  wOI,wI,wLO:integer;
+begin
+  Result:=aStr;
+  if aOld='' then
+    Exit;
+  wI:=Pos(aOld,aStr);
+  if wI<0 then
+    Exit;
+  Result:='';
+  wOI:=1;
+  wLO:=length(aOld);
+  while wI>0 do
+  begin
+    Result:=Result+Copy(aStr,wOI,wI-wOI);
+    if aNew<>'' then
+      Result:=Result+aNew;
+    wOI:=wI+wLO;
+    wI:=wI+wLO;
+    wI:=PosEx(aOld,aStr,wI);
+  end;
+  Result:=Result+Copy(aStr,wOI,length(aStr)-wOI+1);
+end;
+
+var
+  wP1,wP2:TPoint;
+  wNumLines:integer;
+  wI:integer;
+  wText:string;
+  wLine:string;
+begin
+  if not Caller.SelAvail then
+    exit;
+  GetSelectedBlockFullLines(wP1,wP2);
+  wNumLines:=wP2.y-wP1.y+1;
+  wText:='';
+  for wI:=0 to wNumLines-1 do
+  begin
+    wLine:= GetLine(wP1.y+wI);
+    wLine:=ReplaceAll(wLine,'''','''''');
+    //if wI>0 then
+    //  wText:=wText+'+#10';
+    wText:=wText + ''''+wLine+''''
+    if wI = wNumLines-1 then
+      wText:=wText+';'
+    else
+      wText:=wText+'#10+';
+    wText:=wText + #10;
+  end;
+  Caller.TextBetweenPoints[wP1, wP2]:=wText;
+end.
