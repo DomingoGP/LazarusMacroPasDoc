@@ -1,0 +1,109 @@
+// Search procedures and functions in dll header and pastes to clipboard.
+//{$IFDEF LD}var{$ELSE}function{$ENDIF} Foo{$IFDEF LD}: function{$ENDIF}(aP1:integer):integer;{$IFNDEF LD} external LibFileName;{$ENDIF}
+//--->
+//Pointer('Foo'):=DynLibs.GetProcedureAddress(LibHandle,PAnsiChar('Foo'));'+#10;
+// Author: Domingo Galmés  15/4/2023
+
+
+// aLineNum 1..nnn
+// Caller.Lines[0...nnn-1]
+function GetLine(aLineNum:integer):string;
+begin
+  result:=Caller.Lines[aLineNum-1];
+end;
+
+//select full lines.
+procedure GetSelectedBlockFullLines(var aP1:TPoint;var aP2:TPoint);
+begin
+  aP1 := Caller.BlockBegin;
+  aP2 := Caller.BlockEnd;
+  if (aP1.y > aP2.y) then
+  begin
+    aP1 := Caller.BlockEnd;
+    aP2 := Caller.BlockBegin;
+  end;
+  if aP2.x<=1 then
+  begin
+    if aP2.y>1 then
+      aP2.y:=aP2.y-1;
+  end;
+  aP2.x:=Length(Caller.Lines[aP2.y-1])+1;   //last char
+  aP2:=Caller.PhysicalToLogicalPos(aP2);
+  aP1.x:=1;
+end;
+
+function PosEx(aSub:string;aStr:string;aIndex:integer):integer;
+var
+  wI,wI2:integer;
+  wJ:integer;
+  wLS,wLS2,wLSub:integer;
+begin
+  result:=-1;
+  wLS:=length(aStr);
+  wLSub:=length(aSub);
+  if aSub='' then
+    Exit;
+  if wLSub>wLS then
+    Exit;
+  wLS2:=wLS-wLSub+1;
+  for wI := aIndex to wLS2 do
+  begin
+    wJ:=1;
+    wI2:=wI;
+    while (wI2<=wLS) and (wJ<=wLSub) and (aStr[wI2]=aSub[wJ]) do
+    begin
+      if wJ=wLSub then
+      begin
+        result:=wI;
+        exit;
+      end;
+      inc(wI2);
+      inc(wJ);
+    end;
+  end;
+end;
+
+var
+  wP1,wP2:TPoint;
+  wNumLines:integer;
+  wI:integer;
+  wText:string;
+  wLine:string;
+  wTemp:string;
+  wPos1,wPos2:integer;
+begin
+  if not Caller.SelAvail then
+    exit;
+  GetSelectedBlockFullLines(wP1,wP2);
+  wNumLines:=wP2.y-wP1.y+1;
+  wText:='';
+  for wI:=0 to wNumLines-1 do
+  begin
+    wLine:= GetLine(wP1.y+wI);
+    wPos1:=Pos('function{$ENDIF} ',wLine);
+    if wPos1>0 then
+    begin
+      wPos2:=PosEx('{$IFDEF ',wLine,wPos1);
+      if wPos2>0 then
+      begin
+        wTemp:=Copy(wLine,wPos1+17,wPos2-(wPos1+17));
+        wText:=wText+'Pointer('+wTemp+'):=DynLibs.GetProcedureAddress(LibHandle,PAnsiChar('''+wTemp+'''));'+#10;
+      end;
+    end
+    else
+    begin
+      wPos1:=Pos('procedure{$ENDIF} ',wLine);
+      if wPos1>0 then
+      begin
+        wPos2:=PosEx('{$IFDEF ',wLine,wPos1);
+        if wPos2>0 then
+        begin
+          wTemp:=Copy(wLine,wPos1+18,wPos2-(wPos1+18));
+          wText:=wText+'Pointer('+wTemp+'):=DynLibs.GetProcedureAddress(LibHandle,PAnsiChar('''+wTemp+'''));'+#10;
+        end;
+      end
+    end;
+  end;
+  ShowMessage(wText);
+  ClipBoard.AsText:=wText;
+end.
