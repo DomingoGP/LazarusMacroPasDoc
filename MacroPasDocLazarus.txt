@@ -218,13 +218,13 @@ begin
       parameter:=Trim(StrTokenPos(parameter,':',l));
       parameterlower:=LowerCase(parameter);
       l:=length(parameter);
-      if Pos('var',parameterlower)>0 then
+      if Pos('var ',parameterlower)>0 then
         parameter:=Copy(parameter,5,l-4)
-      else if Pos('constref',parameterlower)>0 then
+      else if Pos('constref ',parameterlower)>0 then
         parameter:=Copy(parameter,10,l-9)
-      else if Pos('const',parameterlower)>0 then
+      else if Pos('const ',parameterlower)>0 then
         parameter:=Copy(parameter,7,l-6)
-      else if Pos('out',parameterlower)>0 then
+      else if Pos('out ',parameterlower)>0 then
         parameter:=Copy(parameter,5,l-4);
       parameter:=Trim(parameter);
       if parameter<>'' then
