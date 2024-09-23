@@ -1,0 +1,46 @@
+//dumb macro to convert c code to pascal.
+
+var
+  Options:TSynSearchOptions;
+  point:TPoint;
+begin
+  point:=Caller.CaretXY;
+  if Caller.SelAvail then
+    Options:=[ssoReplaceAll,ssoSelectedOnly]
+  else
+    Options:=[ssoReplaceAll,ssoEntireScope];
+
+  ecEditorTop;
+  Caller.SearchReplace('{','begin',Options);
+
+  ecEditorTop;
+  Caller.SearchReplace('}','end;',Options);
+
+  ecEditorTop;
+  Caller.SearchReplace('||','or',Options);
+  ecEditorTop;
+  Caller.SearchReplace('|','or',Options);
+  ecEditorTop;
+  Caller.SearchReplace('&&','and',Options);
+  ecEditorTop;
+  Caller.SearchReplace('0x','$',Options);
+  ecEditorTop;
+  Caller.SearchReplace('<<','shl',Options);
+  ecEditorTop;
+  Caller.SearchReplace('>>','shr',Options);
+  ecEditorTop;
+  Caller.SearchReplace('/*','{*',Options);
+  ecEditorTop;
+  Caller.SearchReplace('*/','*}',Options);
+  ecEditorTop;
+  Caller.SearchReplace('return','exit',Options);
+  ecEditorTop;
+  Caller.SearchReplace('==','_eqcmp_',Options);
+  ecEditorTop;
+  Caller.SearchReplace('=',':=}',Options);
+  ecEditorTop;
+  Caller.SearchReplace('_eqcmp_','=}',Options);
+  ecEditorTop;
+  Caller.SearchReplace('bool','boolean',Options);
+  Caller.CaretXY:=point;
+end.
