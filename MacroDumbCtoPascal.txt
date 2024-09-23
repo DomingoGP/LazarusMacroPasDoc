@@ -37,9 +37,9 @@ begin
   ecEditorTop;
   Caller.SearchReplace('==','_eqcmp_',Options);
   ecEditorTop;
-  Caller.SearchReplace('=',':=}',Options);
+  Caller.SearchReplace('=',':=',Options);
   ecEditorTop;
-  Caller.SearchReplace('_eqcmp_','=}',Options);
+  Caller.SearchReplace('_eqcmp_','=',Options);
   ecEditorTop;
   Caller.SearchReplace('bool','boolean',Options);
   Caller.CaretXY:=point;
