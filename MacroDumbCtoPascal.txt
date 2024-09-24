@@ -1,4 +1,4 @@
-//dumb macro to convert c code to pascal.
+//dumb macro to convert c to pascal.
 
 var
   Options:TSynSearchOptions;
@@ -17,17 +17,17 @@ begin
   Caller.SearchReplace('}','end;',Options);
 
   ecEditorTop;
-  Caller.SearchReplace('||','or',Options);
+  Caller.SearchReplace('||',' or ',Options);
   ecEditorTop;
-  Caller.SearchReplace('|','or',Options);
+  Caller.SearchReplace('|',' or ',Options);
   ecEditorTop;
-  Caller.SearchReplace('&&','and',Options);
+  Caller.SearchReplace('&&',' and ',Options);
   ecEditorTop;
   Caller.SearchReplace('0x','$',Options);
   ecEditorTop;
-  Caller.SearchReplace('<<','shl',Options);
+  Caller.SearchReplace('<<',' shl ',Options);
   ecEditorTop;
-  Caller.SearchReplace('>>','shr',Options);
+  Caller.SearchReplace('>>',' shr ',Options);
   ecEditorTop;
   Caller.SearchReplace('/*','{*',Options);
   ecEditorTop;
@@ -37,10 +37,24 @@ begin
   ecEditorTop;
   Caller.SearchReplace('==','_eqcmp_',Options);
   ecEditorTop;
+  Caller.SearchReplace('!=','_necmp_',Options);
+  ecEditorTop;
+  Caller.SearchReplace('<=','_lecmp_',Options);
+  ecEditorTop;
+  Caller.SearchReplace('>=','_gecmp_',Options);
+  ecEditorTop;
   Caller.SearchReplace('=',':=',Options);
+  ecEditorTop;
+  Caller.SearchReplace('!',' not ',Options);
+  ecEditorTop;
+  Caller.SearchReplace('_gecmp_','>=',Options);
+  ecEditorTop;
+  Caller.SearchReplace('_lecmp_','<=',Options);
+  ecEditorTop;
+  Caller.SearchReplace('_necmp_','!=',Options);
   ecEditorTop;
   Caller.SearchReplace('_eqcmp_','=',Options);
   ecEditorTop;
   Caller.SearchReplace('bool','boolean',Options);
   Caller.CaretXY:=point;
-end.
+end. 
