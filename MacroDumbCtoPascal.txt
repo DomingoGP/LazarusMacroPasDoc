@@ -1,60 +1,96 @@
 //dumb macro to convert c to pascal.
 
+
 var
+  SelBeginPt    : TPOINT;
+  SelEndPt      : TPOINT;
+  OldCaret :TPOINT;
+
   Options:TSynSearchOptions;
   point:TPoint;
+
+  procedure SaveSelection;
+  begin
+    OldCaret := Caller.CaretXY;
+    SelBeginPt.X:=0;
+    SelEndPt.Y:=0;
+    SelEndPt:=SelBeginPt;
+    if Caller.SelAvail then
+    begin
+      SelBeginPt := Caller.BlockBegin;
+      SelEndPt   := Caller.BlockEnd;
+    end;
+  end;
+
+  procedure RestoreSelection;
+  begin
+    if SelBeginPt.x <> 0 then
+    begin
+      Caller.BlockBegin := SelBeginPt;
+      Caller.BlockEnd   := SelEndPt;
+    end
+    else
+      Caller.CaretXY    := OldCaret;
+  end;
+
 begin
   point:=Caller.CaretXY;
   if Caller.SelAvail then
     Options:=[ssoReplaceAll,ssoSelectedOnly]
   else
+  begin
     Options:=[ssoReplaceAll,ssoEntireScope];
-
-  ecEditorTop;
+    ecEditorTop;
+  end;
+  SaveSelection;
   Caller.SearchReplace('{','begin',Options);
 
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('}','end;',Options);
 
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('||',' or ',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('|',' or ',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('&&',' and ',Options);
-  ecEditorTop;
+  RestoreSelection;
+  Caller.SearchReplace('&',' and ',Options);
+  RestoreSelection;
   Caller.SearchReplace('0x','$',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('<<',' shl ',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('>>',' shr ',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('/*','{*',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('*/','*}',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('return','exit',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('==','_eqcmp_',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('!=','_necmp_',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('<=','_lecmp_',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('>=','_gecmp_',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('=',':=',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('!',' not ',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('_gecmp_','>=',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('_lecmp_','<=',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('_necmp_','!=',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('_eqcmp_','=',Options);
-  ecEditorTop;
+  RestoreSelection;
   Caller.SearchReplace('bool','boolean',Options);
+  RestoreSelection;
+  Caller.SearchReplace('NULL','nil',Options);    
   Caller.CaretXY:=point;
 end. 
